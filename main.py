@@ -504,4 +504,5 @@ async def co_ai_suggest(request: Request, db: Session = Depends(get_db),
         knowledge = parts[1].strip() if len(parts) > 1 else ""
         return JSONResponse({"persona": persona, "knowledge": knowledge})
     except Exception as e:
+        log.error("[ai-suggest] %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
