@@ -31,6 +31,10 @@ init_db()
 app = FastAPI(title="WP Bot")
 templates = Jinja2Templates(directory="admin/templates")
 
+@app.get("/healthz")
+async def healthz():
+    return {"ok": True}
+
 ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "admin123")
 _super_sessions: set[str] = set()
 _co_sessions: dict[str, str] = {}   # token → company_id
