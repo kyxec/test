@@ -1,0 +1,28 @@
+# Секреты — НИКОГДА не пушить
+.env
+
+# База данных (локальная)
+*.db
+*.sqlite
+
+# Python кэш
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Виртуальное окружение
+.venv/
+venv/
+env/
+
+# VS Code
+.vscode/
+
+# Логи
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

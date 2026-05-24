@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ 'Редактировать' if company else 'Новая компания' }} — Супер-Админ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 min-h-screen text-slate-100">
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center gap-3">
+    <a href="/admin" class="text-slate-400 hover:text-white transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+      </svg>
+    </a>
+    <span class="font-semibold">{{ 'Редактировать компанию' if company else 'Новая компания' }}</span>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-6 py-8">
+    {% if error %}
+    <div class="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ '/admin/company/' + company.id + '/edit' if company else '/admin/company/new' }}" class="space-y-6">
+
+      <!-- Основное -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <h2 class="font-semibold text-slate-200 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">1</span>
+          Основная информация
+        </h2>
+        <div>
+          <label class="block text-slate-400 text-sm mb-1.5">Название компании *</label>
+          <input type="text" name="name" required value="{{ company.name if company else '' }}"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+                 placeholder="например: Алгоритмика">
+        </div>
+        {% if not company %}
+        <div>
+          <label class="block text-slate-400 text-sm mb-1.5">Phone Number ID * <span class="text-slate-500">(из Meta Developer Console)</span></label>
+          <input type="text" name="wa_phone_id" required
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition font-mono text-sm"
+                 placeholder="1234567890123456">
+          <p class="mt-1.5 text-xs text-slate-500">Meta → WhatsApp → API Setup → Phone Number ID</p>
+        </div>
+        {% else %}
+        <div>
+          <label class="block text-slate-400 text-sm mb-1.5">Phone Number ID</label>
+          <div class="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-400 font-mono text-sm">{{ company.id }}</div>
+        </div>
+        {% endif %}
+        <div>
+          <label class="block text-slate-400 text-sm mb-1.5">WA Access Token *</label>
+          <input type="text" name="wa_token" required value="{{ company.wa_token if company else '' }}"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition font-mono text-sm"
+                 placeholder="EAAL...">
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="checkbox" name="active" id="active" value="on"
+                 {{ 'checked' if (not company or company.active) else '' }}
+                 class="w-4 h-4 rounded accent-violet-500">
+          <label for="active" class="text-slate-300 text-sm">Компания активна (бот отвечает)</label>
+        </div>
+      </div>
+
+      <!-- Бот -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <h2 class="font-semibold text-slate-200 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-teal-500/20 text-teal-400 flex items-center justify-center text-xs">2</span>
+          Настройки бота
+        </h2>
+        <div>
+          <label class="block text-slate-400 text-sm mb-1.5">Персона / Системный промпт</label>
+          <textarea name="persona" rows="4"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition resize-none"
+                    placeholder="Ты — дружелюбный помощник компании...">{{ company.persona if company else '' }}</textarea>
+        </div>
+        <div>
+          <label class="block text-slate-400 text-sm mb-1.5">База знаний</label>
+          <textarea name="knowledge" rows="6"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition resize-none"
+                    placeholder="Режим работы: пн-пт 9:00-18:00&#10;Услуги: ...&#10;FAQ: ...">{{ company.knowledge if company else '' }}</textarea>
+        </div>
+      </div>
+
+      <!-- Доступ -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <h2 class="font-semibold text-slate-200 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-violet-500/20 text-violet-400 flex items-center justify-center text-xs">3</span>
+          Доступ в портал для владельца
+        </h2>
+        <p class="text-slate-500 text-sm">Владелец зайдёт на /portal/login и увидит только свою компанию.</p>
+        <div>
+          <label class="block text-slate-400 text-sm mb-1.5">Логин</label>
+          <input type="text" name="login" value="{{ company.login if company and company.login else '' }}"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition"
+                 placeholder="например: algoritmika">
+        </div>
+        <div>
+          <label class="block text-slate-400 text-sm mb-1.5">
+            Пароль {% if company %}<span class="text-slate-500">(оставьте пустым чтобы не менять)</span>{% endif %}
+          </label>
+          <input type="password" name="password"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition"
+                 placeholder="{{ 'Новый пароль' if company else 'Придумайте пароль' }}">
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="submit"
+                class="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg">
+          {{ 'Сохранить изменения' if company else 'Создать компанию' }}
+        </button>
+        <a href="/admin"
+           class="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium transition text-center">
+          Отмена
+        </a>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

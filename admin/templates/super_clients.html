@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Клиенты — {{ company.name }} — Супер-Админ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 min-h-screen text-slate-100">
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center gap-3">
+    <a href="/admin" class="text-slate-400 hover:text-white transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+      </svg>
+    </a>
+    <div>
+      <span class="font-semibold">{{ company.name }}</span>
+      <span class="text-slate-400 text-sm ml-2">— клиенты ({{ clients|length }})</span>
+    </div>
+  </header>
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    {% if not clients %}
+    <div class="text-center py-20 text-slate-500">Клиентов пока нет.</div>
+    {% else %}
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-800 text-slate-400 text-xs uppercase tracking-wide">
+          <tr>
+            <th class="text-left px-4 py-3">Телефон</th>
+            <th class="text-left px-4 py-3">Стадия</th>
+            <th class="text-left px-4 py-3">Статус</th>
+            <th class="text-left px-4 py-3">Дата</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800">
+          {% for c in clients %}
+          <tr class="hover:bg-slate-800/50 transition">
+            <td class="px-4 py-3 font-mono text-white">{{ c.phone }}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-1 rounded-lg text-xs font-medium
+                {{ 'bg-slate-700 text-slate-300' if c.stage == 'new' else
+                   'bg-blue-500/20 text-blue-300' if c.stage == 'qualifying' else
+                   'bg-emerald-500/20 text-emerald-300' if c.stage == 'qualified' else
+                   'bg-violet-500/20 text-violet-300' }}">
+                {{ c.stage }}
+              </span>
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex gap-1.5">
+                {% if c.blocked %}<span class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs">заблок.</span>{% endif %}
+                {% if c.handoff %}<span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">менеджер</span>{% endif %}
+                {% if not c.blocked and not c.handoff %}<span class="text-slate-500 text-xs">—</span>{% endif %}
+              </div>
+            </td>
+            <td class="px-4 py-3 text-slate-400">{{ c.created_at.strftime('%d.%m.%Y') if c.created_at else '—' }}</td>
+            <td class="px-4 py-3">
+              <div class="flex gap-1 justify-end">
+                {% if c.handoff %}
+                <form method="post" action="/admin/client/{{ c.id }}/handoff-off">
+                  <button class="px-2 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded text-xs transition">← вернуть боту</button>
+                </form>
+                {% endif %}
+                {% if c.blocked %}
+                <form method="post" action="/admin/client/{{ c.id }}/unblock">
+                  <button class="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs transition">разблок.</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/admin/client/{{ c.id }}/clear-history"
+                      onsubmit="return confirm('Удалить историю переписки?')">
+                  <button class="px-2 py-1 bg-slate-700 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded text-xs transition">очистить</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,127 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Супер-Админ  Компании</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 min-h-screen text-slate-100">
+
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-700 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <span class="font-bold text-lg">Супер-Администратор</span>
+    </div>
+    <a href="/admin/logout" class="text-slate-400 hover:text-red-400 text-sm transition flex items-center gap-1.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+      </svg>
+      Выйти
+    </a>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+
+    <!-- Сводная статистика -->
+    <div class="grid grid-cols-3 gap-4 mb-8">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <p class="text-slate-500 text-xs uppercase tracking-wider mb-1">Компаний</p>
+        <p class="text-3xl font-bold text-white">{{ companies|length }}</p>
+        <p class="text-slate-500 text-xs mt-1">{{ companies|selectattr("active")|list|length }} активных</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <p class="text-slate-500 text-xs uppercase tracking-wider mb-1">Клиентов всего</p>
+        <p class="text-3xl font-bold text-white">{{ stats.values()|sum(attribute="clients") }}</p>
+        <p class="text-slate-500 text-xs mt-1">по всем компаниям</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <p class="text-slate-500 text-xs uppercase tracking-wider mb-1">Сообщений всего</p>
+        <p class="text-3xl font-bold text-white">{{ stats.values()|sum(attribute="messages") }}</p>
+        <p class="text-slate-500 text-xs mt-1">в базе данных</p>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-xl font-bold">Все компании</h1>
+      <a href="/admin/company/new"
+         class="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-xl text-sm font-medium transition shadow-lg shadow-violet-900/30">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Добавить компанию
+      </a>
+    </div>
+
+    {% if not companies %}
+    <div class="text-center py-20 text-slate-500">
+      <svg class="w-12 h-12 mx-auto mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+      </svg>
+      <p class="mb-2">Компаний пока нет.</p>
+      <a href="/admin/company/new" class="text-violet-400 hover:underline text-sm">Создать первую &rarr;</a>
+    </div>
+    {% else %}
+    <div class="space-y-3">
+      {% for c in companies %}
+      <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 transition">
+        <div class="flex items-center gap-4">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg shrink-0 select-none">
+            {{ c.name[0].upper() }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold text-white">{{ c.name }}</span>
+              {% if c.active %}
+              <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full border border-emerald-500/30">активна</span>
+              {% else %}
+              <span class="px-2 py-0.5 bg-slate-700 text-slate-400 text-xs rounded-full">отключена</span>
+              {% endif %}
+              {% if not c.login %}
+              <span class="px-2 py-0.5 bg-yellow-500/15 text-yellow-500 text-xs rounded-full border border-yellow-500/25">нет доступа в портал</span>
+              {% endif %}
+            </div>
+            <div class="flex items-center gap-4 mt-1.5 text-sm text-slate-400 flex-wrap">
+              <span class="font-mono text-xs text-slate-500">{{ c.id }}</span>
+              <span>&#128101; {{ stats[c.id].clients }} кл.</span>
+              <span>&#128172; {{ stats[c.id].messages }} сообщ.</span>
+              {% if c.login %}<span class="text-violet-400">&#128273; {{ c.login }}</span>{% endif %}
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            {% if c.login %}
+            <a href="/portal/login" target="_blank"
+               class="px-3 py-2 bg-emerald-600/25 hover:bg-emerald-600/40 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-medium transition">
+              Портал &#8599;
+            </a>
+            {% endif %}
+            <a href="/admin/company/{{ c.id }}/clients"
+               class="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-medium transition">
+              Клиенты
+            </a>
+            <a href="/admin/company/{{ c.id }}/edit"
+               class="px-3 py-2 bg-violet-600/25 hover:bg-violet-600/40 border border-violet-500/30 text-violet-300 rounded-xl text-xs font-medium transition">
+              Изменить
+            </a>
+            <form method="post" action="/admin/company/{{ c.id }}/delete"
+                  onsubmit="return confirm('Удалить компанию &laquo;{{ c.name }}&raquo; и ВСЕ данные? Это необратимо.')">
+              <button type="submit"
+                      class="px-3 py-2 bg-red-500/15 hover:bg-red-500/30 border border-red-500/25 text-red-400 rounded-xl text-xs font-medium transition">
+                Удалить
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-center text-slate-600 text-xs mt-8">
+      При создании компании сразу задаются WA-токен, AI-персона и доступ в портал &mdash; больше ничего настраивать не нужно.
+    </p>
+    {% endif %}
+  </main>
+</body>
+</html>

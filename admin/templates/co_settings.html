@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Настройки — {{ company.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 flex min-h-screen">
+  {% include 'co_sidebar.html' %}
+
+  <main class="ml-64 flex-1 p-8 min-w-0">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-slate-800">Настройки</h1>
+      <p class="text-slate-500 text-sm mt-1">Управление ботом и интеграцией WhatsApp</p>
+    </div>
+
+    {% if success %}
+    <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm font-medium">
+      {{ success }}
+    </div>
+    {% endif %}
+    {% if error %}
+    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/portal/settings" class="space-y-6">
+
+      <!-- WhatsApp -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+        <h2 class="font-semibold text-slate-800 flex items-center gap-2">
+          <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+          </svg>
+          WhatsApp API
+        </h2>
+        <div>
+          <label class="block text-slate-600 text-sm font-medium mb-1.5">Название компании</label>
+          <input type="text" name="name" required value="{{ company.name }}"
+                 class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition bg-white">
+        </div>
+        <div>
+          <label class="block text-slate-600 text-sm font-medium mb-1.5">Phone Number ID</label>
+          <div class="border border-slate-100 bg-slate-50 rounded-xl px-4 py-2.5 text-slate-400 font-mono text-sm">{{ company.id }}</div>
+          <p class="text-xs text-slate-400 mt-1">Изменить может только администратор.</p>
+        </div>
+        <div>
+          <label class="block text-slate-600 text-sm font-medium mb-1.5">Access Token</label>
+          <input type="text" name="wa_token" required value="{{ company.wa_token }}"
+                 class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition font-mono text-sm bg-white"
+                 placeholder="EAAL...">
+          <p class="text-xs text-slate-400 mt-1">Обновляйте токен каждые 24 часа или используйте постоянный токен системного пользователя.</p>
+        </div>
+      </div>
+
+      <!-- Бот -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold text-slate-800 flex items-center gap-2">
+            <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+            Личность бота
+          </h2>
+          <button type="button" id="aiBtn"
+                  class="flex items-center gap-2 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 rounded-lg text-xs font-medium transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            AI-помощник
+          </button>
+        </div>
+
+        <!-- AI панель -->
+        <div id="aiPanel" class="hidden bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
+          <p class="text-violet-700 text-sm font-medium">Опишите ваш бизнес — AI заполнит поля ниже:</p>
+          <textarea id="aiDesc" rows="3"
+                    class="w-full border border-violet-200 rounded-xl px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white resize-none"
+                    placeholder="Например: школа программирования для детей 6-17 лет, 3 уровня сложности, занятия онлайн и офлайн, пробный урок бесплатно..."></textarea>
+          <button type="button" id="aiGenBtn"
+                  class="w-full bg-violet-600 hover:bg-violet-500 text-white py-2 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2">
+            <span id="aiSpinner" class="hidden">
+              <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+            </span>
+            Сгенерировать
+          </button>
+        </div>
+
+        <div>
+          <label class="block text-slate-600 text-sm font-medium mb-1.5">
+            Персона <span class="text-slate-400 font-normal">(системный промпт)</span>
+          </label>
+          <textarea id="personaField" name="persona" rows="5"
+                    class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition resize-none bg-white"
+                    placeholder="Ты — вежливый помощник компании {{ company.name }}. Отвечаешь на вопросы клиентов...">{{ company.persona }}</textarea>
+          <p class="text-xs text-slate-400 mt-1">Как бот должен себя вести, какой тон, от кого говорить.</p>
+        </div>
+        <div>
+          <label class="block text-slate-600 text-sm font-medium mb-1.5">
+            База знаний <span class="text-slate-400 font-normal">(контекст о компании)</span>
+          </label>
+          <textarea id="knowledgeField" name="knowledge" rows="8"
+                    class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition resize-none bg-white"
+                    placeholder="Режим работы: пн-пт 9:00-18:00&#10;Адрес: ...&#10;Услуги и цены:&#10;  - ...&#10;FAQ:&#10;  - Как записаться? ...">{{ company.knowledge }}</textarea>
+          <p class="text-xs text-slate-400 mt-1">Все факты о компании: услуги, цены, адрес, FAQ — бот использует это в ответах.</p>
+        </div>
+      </div>
+
+      <!-- Пароль -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <h2 class="font-semibold text-slate-800 flex items-center gap-2">
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          Смена пароля
+        </h2>
+        <div>
+          <label class="block text-slate-600 text-sm font-medium mb-1.5">Текущий пароль</label>
+          <input type="password" name="current_password"
+                 class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition bg-white"
+                 placeholder="Оставьте пустым чтобы не менять">
+        </div>
+        <div>
+          <label class="block text-slate-600 text-sm font-medium mb-1.5">Новый пароль</label>
+          <input type="password" name="new_password"
+                 class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition bg-white"
+                 placeholder="Минимум 6 символов">
+        </div>
+      </div>
+
+      <button type="submit"
+              class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-emerald-200 text-sm">
+        Сохранить настройки
+      </button>
+    </form>
+  </main>
+</body>
+<script>
+const aiBtn    = document.getElementById('aiBtn');
+const aiPanel  = document.getElementById('aiPanel');
+const aiGenBtn = document.getElementById('aiGenBtn');
+const aiSpinner = document.getElementById('aiSpinner');
+const aiDesc   = document.getElementById('aiDesc');
+const personaField   = document.getElementById('personaField');
+const knowledgeField = document.getElementById('knowledgeField');
+
+aiBtn.addEventListener('click', () => aiPanel.classList.toggle('hidden'));
+
+aiGenBtn.addEventListener('click', async () => {
+  const desc = aiDesc.value.trim();
+  if (!desc) { aiDesc.focus(); return; }
+  aiSpinner.classList.remove('hidden');
+  aiGenBtn.disabled = true;
+  try {
+    const fd = new FormData();
+    fd.append('description', desc);
+    const r = await fetch('/portal/ai-suggest', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.error) { alert('Ошибка: ' + data.error); return; }
+    if (data.persona)   personaField.value   = data.persona;
+    if (data.knowledge) knowledgeField.value = data.knowledge;
+    aiPanel.classList.add('hidden');
+  } finally {
+    aiSpinner.classList.add('hidden');
+    aiGenBtn.disabled = false;
+  }
+});
+</script>
+</html>
