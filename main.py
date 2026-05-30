@@ -33,6 +33,11 @@ init_db()
 app = FastAPI(title="WP Bot")
 templates = Jinja2Templates(directory="admin/templates")
 
+# Выводим в лог чтобы можно было скопировать из Railway Logs
+log.info("="*60)
+log.info("JWT_SECRET (скопируй в Railway Variables): %s", JWT_SECRET)
+log.info("="*60)
+
 # ── Auth ──────────────────────────────────────────────────────────
 ADMIN_PASS  = os.getenv("ADMIN_PASSWORD", "admin123")
 JWT_SECRET  = os.getenv("JWT_SECRET", secrets.token_hex(32))  # Railway: задать явно
@@ -253,7 +258,7 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
     db.commit()
 
     # — Авто-handoff при горячем лиде
-    threshold = getattr(company, "hot_score", 8) or 8
+    threshold = company.hot_score if company.hot_score is not None else 8
     if FEATURE_HANDOFF and score >= threshold and not client.handoff:
         client.handoff = True
         db.commit()
@@ -699,7 +704,51 @@ async def co_handoff_count(request: Request, db: Session = Depends(get_db)):
     return {"handoff_count": count}
 
 
-@app.post("/portal/ai-suggest")
+@app.post("/portal/api/tg-test")
+async def co_tg_test(request: Request, db: Session = Depends(get_db)):
+    """Тестовое сообщение в Telegram — проверка настройки."""
+    company = _get_co_company(request, db)
+    if not company:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if not company.tg_token or not company.tg_chat_id:
+        return JSONResponse({"error": "Заполните Telegram Bot Token и Chat ID перед тестом"}, status_code=400)
+    try:
+        r = _req.post(
+            f"https://api.telegram.org/bot{company.tg_token}/sendMessage",
+            json={"chat_id": company.tg_chat_id,
+                  "text": f"✅ <b>Тест уведомлений</b>\n\n"
+                          f"Бот <b>{company.name}</b> успешно подключён.\n"
+                          f"Горячие лиды (score ≥ {company.hot_score or 8}) будут приходить сюда 🔥",
+                  "parse_mode": "HTML"},
+            timeout=10
+        )
+        r.raise_for_status()
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/portal/api/tg-getid")
+async def co_tg_getid(request: Request, tg_token: str):
+    """Получить chat_id из последних updates Telegram бота."""
+    company = _get_co_company(request, None)  # только auth check
+    token = request.cookies.get("co_token", "")
+    if not (_decode_jwt(token) or {}).get("role") == "company":
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if not tg_token:
+        return JSONResponse({"error": "tg_token пустой"}, status_code=400)
+    try:
+        r = _req.get(f"https://api.telegram.org/bot{tg_token}/getUpdates", timeout=10)
+        r.raise_for_status()
+        updates = r.json().get("result", [])
+        if not updates:
+            return JSONResponse({"error": "Сначала напишите что-нибудь вашему боту в Telegram, затем повторите"})
+        chat_id = str(updates[-1]["message"]["chat"]["id"])
+        return {"chat_id": chat_id}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 async def co_ai_suggest(request: Request, db: Session = Depends(get_db),
                          description: str = Form(...)):
     company = _get_co_company(request, db)

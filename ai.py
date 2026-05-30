@@ -46,18 +46,41 @@ def _call_groq(messages: list[dict]) -> str:
 
 
 def _parse_bot_response(raw: str) -> tuple[str, int, str]:
-    """Распарсить JSON-ответ бота. Fallback — вернуть текст как reply."""
-    # Бывает что LLM обворачивает в ```json ... ```, чистим
+    """Распарсить JSON-ответ бота. Многоуровневый fallback."""
+    # Чистим markdown-обёртку
     cleaned = re.sub(r"```[a-z]*\n?", "", raw).strip()
+    # Попытка 1: прямой JSON parse
     try:
         data = json.loads(cleaned)
-        reply  = str(data.get("reply", raw))
+        reply  = str(data.get("reply", "")).strip() or cleaned
         score  = max(1, min(10, int(data.get("score", 1))))
         intent = str(data.get("intent", "other"))
         return reply, score, intent
     except Exception:
-        log.warning("[ai] Не удалось распарсить JSON: %s", raw[:120])
-        return raw, 1, "other"
+        pass
+    # Попытка 2: найти первый JSON-объект в тексте
+    m = re.search(r'\{.*?\}', cleaned, re.DOTALL)
+    if m:
+        try:
+            data = json.loads(m.group())
+            reply  = str(data.get("reply", "")).strip() or cleaned
+            score  = max(1, min(10, int(data.get("score", 1))))
+            intent = str(data.get("intent", "other"))
+            return reply, score, intent
+        except Exception:
+            pass
+    # Попытка 3: regex по полям
+    reply_m  = re.search(r'"reply"\s*:\s*"(.*?)"(?:\s*,|\s*})', cleaned, re.DOTALL)
+    score_m  = re.search(r'"score"\s*:\s*(\d+)',    cleaned)
+    intent_m = re.search(r'"intent"\s*:\s*"(\w+)"', cleaned)
+    if reply_m:
+        reply  = reply_m.group(1).replace('\\n', '\n').replace('\\"', '"')
+        score  = max(1, min(10, int(score_m.group(1)))) if score_m else 1
+        intent = intent_m.group(1) if intent_m else "other"
+        return reply, score, intent
+    # Фолбек: отдаём текст как есть
+    log.warning("[ai] Не удалось распарсить JSON: %s", raw[:120])
+    return cleaned, 1, "other"
 
 
 def _summarize(db: Session, phone: str, company_id: str) -> None:

@@ -29,4 +29,4 @@ CRM_WEBHOOK_URL  = os.getenv("CRM_WEBHOOK_URL", "")
 
 # ── LLM ───────────────────────────────────────────────────────────
 LLM_MODEL        = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
-LLM_MAX_TOKENS   = int(os.getenv("LLM_MAX_TOKENS", "500"))
+LLM_MAX_TOKENS   = int(os.getenv("LLM_MAX_TOKENS", "700"))

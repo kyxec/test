@@ -119,22 +119,34 @@
           Telegram-уведомления менеджеру
         </h2>
         <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-700 space-y-1">
-          <p class="font-medium">Как настроить:</p>
-          <p>1. Создайте бота через <a href="https://t.me/BotFather" target="_blank" class="underline">@BotFather</a> → скопируйте токен</p>
-          <p>2. Напишите боту хоть что-нибудь, затем узнайте свой chat_id через <a href="https://t.me/userinfobot" target="_blank" class="underline">@userinfobot</a></p>
-          <p>3. Вставьте оба значения ниже — менеджер будет получать уведомление о горячих лидах</p>
+          <p class="font-medium">Как настроить за 2 минуты:</p>
+          <p>1. Создайте бота через <a href="https://t.me/BotFather" target="_blank" class="underline font-medium">@BotFather</a> → скопируйте токен</p>
+          <p>2. Напишите своему боту любое сообщение в Telegram</p>
+          <p>3. Вставьте токен ниже → нажмите <b>«Узнать Chat ID»</b> — он подставится автоматически</p>
+          <p>4. Нажмите <b>«Тест»</b> — получите пробное сообщение</p>
         </div>
         <div>
           <label class="block text-slate-600 text-sm font-medium mb-1.5">Telegram Bot Token</label>
-          <input type="text" name="tg_token" value="{{ company.tg_token or '' }}"
+          <input type="text" name="tg_token" id="tgToken" value="{{ company.tg_token or '' }}"
                  class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition font-mono text-sm bg-white"
                  placeholder="1234567890:AAF...">
         </div>
         <div>
           <label class="block text-slate-600 text-sm font-medium mb-1.5">Chat ID менеджера</label>
-          <input type="text" name="tg_chat_id" value="{{ company.tg_chat_id or '' }}"
-                 class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition font-mono text-sm bg-white"
-                 placeholder="123456789">
+          <div class="flex gap-2">
+            <input type="text" name="tg_chat_id" id="tgChatId" value="{{ company.tg_chat_id or '' }}"
+                   class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition font-mono text-sm bg-white"
+                   placeholder="123456789">
+            <button type="button" id="getIdBtn"
+                    class="px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl text-sm font-medium transition whitespace-nowrap">
+              🔍 Узнать Chat ID
+            </button>
+            <button type="button" id="tgTestBtn"
+                    class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-medium transition">
+              ✉️ Тест
+            </button>
+          </div>
+          <p id="tgStatus" class="text-xs mt-1.5 hidden"></p>
         </div>
         <div>
           <label class="block text-slate-600 text-sm font-medium mb-1.5">
@@ -219,6 +231,40 @@ aiGenBtn.addEventListener('click', async () => {
     aiSpinner.classList.add('hidden');
     aiGenBtn.disabled = false;
   }
+});
+
+// ── Telegram helpers ──────────────────────────────────────────────
+const tgToken  = document.getElementById('tgToken');
+const tgChatId = document.getElementById('tgChatId');
+const tgStatus = document.getElementById('tgStatus');
+
+function showTgStatus(msg, ok) {
+  tgStatus.textContent = msg;
+  tgStatus.className = 'text-xs mt-1.5 ' + (ok ? 'text-emerald-600' : 'text-red-500');
+  tgStatus.classList.remove('hidden');
+}
+
+document.getElementById('getIdBtn').addEventListener('click', async () => {
+  const token = tgToken.value.trim();
+  if (!token) { showTgStatus('Сначала введите Bot Token', false); return; }
+  showTgStatus('Запрашиваю...', true);
+  try {
+    const r = await fetch('/portal/api/tg-getid?tg_token=' + encodeURIComponent(token));
+    const d = await r.json();
+    if (d.error) { showTgStatus('❌ ' + d.error, false); return; }
+    tgChatId.value = d.chat_id;
+    showTgStatus('✅ Chat ID получен: ' + d.chat_id, true);
+  } catch(e) { showTgStatus('❌ ' + e, false); }
+});
+
+document.getElementById('tgTestBtn').addEventListener('click', async () => {
+  showTgStatus('Отправляю...', true);
+  try {
+    const r = await fetch('/portal/api/tg-test', { method: 'POST' });
+    const d = await r.json();
+    if (d.error) { showTgStatus('❌ ' + d.error, false); return; }
+    showTgStatus('✅ Сообщение отправлено! Проверьте Telegram.', true);
+  } catch(e) { showTgStatus('❌ ' + e, false); }
 });
 </script>
 </html>
