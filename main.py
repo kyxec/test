@@ -33,18 +33,6 @@ init_db()
 app = FastAPI(title="WP Bot")
 templates = Jinja2Templates(directory="admin/templates")
 
-# Выводим в лог чтобы можно было скопировать из Railway Logs
-log.info("="*60)
-log.info("JWT_SECRET (скопируй в Railway Variables): %s", JWT_SECRET)
-log.info("="*60)
-
-@app.on_event("startup")
-async def _startup():
-    log.info("="*60)
-    log.info("JWT_SECRET = %s", JWT_SECRET)
-    log.info("(Задай это значение в Railway → Variables → JWT_SECRET)")
-    log.info("="*60)
-
 # ── Auth ──────────────────────────────────────────────────────────
 ADMIN_PASS  = os.getenv("ADMIN_PASSWORD", "admin123")
 JWT_SECRET  = os.getenv("JWT_SECRET", secrets.token_hex(32))  # Railway: задать явно
@@ -52,6 +40,13 @@ JWT_ALG     = "HS256"
 JWT_TTL     = 60 * 60 * 24 * 7   # 7 дней
 
 _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+@app.on_event("startup")
+async def _startup():
+    log.info("="*60)
+    log.info("JWT_SECRET = %s", JWT_SECRET)
+    log.info("(Задай это значение в Railway -> Variables -> JWT_SECRET)")
+    log.info("="*60)
 
 def _hash_pwd(pwd: str) -> str:
     return _pwd.hash(pwd)
