@@ -183,7 +183,17 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
         db.commit()
 
     if FEATURE_HANDOFF and client.handoff:
-        log.info("[handoff] %s — пропущено (у менеджера)", phone)
+        # Секретная команда сброса — для тестирования
+        if text.strip().lower() in ("!сброс", "!reset", "!bot", "!старт"):
+            client.handoff = False
+            client.lead_score = 0
+            client.stage = "new"
+            db.commit()
+            send_wa(phone, "🤖 Бот снова активен! Начинаем сначала.",
+                    company.wa_phone_id, company.wa_token)
+            log.info("[reset] %s — handoff сброшен командой", phone)
+        else:
+            log.info("[handoff] %s — пропущено (у менеджера)", phone)
         return {"ok": True}
 
     if FEATURE_HANDOFF and text.lower() in ("!человек", "!manager", "!human"):
