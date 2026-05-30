@@ -707,46 +707,52 @@ async def co_handoff_count(request: Request, db: Session = Depends(get_db)):
 
 
 @app.post("/portal/api/tg-test")
-async def co_tg_test(request: Request, db: Session = Depends(get_db)):
-    """Тестовое сообщение в Telegram — проверка настройки."""
+async def co_tg_test(request: Request, db: Session = Depends(get_db),
+                     tg_token: str = Form(""), tg_chat_id: str = Form("")):
     company = _get_co_company(request, db)
     if not company:
         return JSONResponse({"error": "unauthorized"}, status_code=401)
-    if not company.tg_token or not company.tg_chat_id:
-        return JSONResponse({"error": "Заполните Telegram Bot Token и Chat ID перед тестом"}, status_code=400)
+    token   = tg_token.strip()   or (company.tg_token   or "")
+    chat_id = tg_chat_id.strip() or (company.tg_chat_id or "")
+    if not token or not chat_id:
+        return JSONResponse({"error": "Сначала заполните Bot Token и Chat ID"}, status_code=400)
     try:
         r = _req.post(
-            f"https://api.telegram.org/bot{company.tg_token}/sendMessage",
-            json={"chat_id": company.tg_chat_id,
-                  "text": f"✅ <b>Тест уведомлений</b>\n\n"
-                          f"Бот <b>{company.name}</b> успешно подключён.\n"
-                          f"Горячие лиды (score ≥ {company.hot_score or 8}) будут приходить сюда 🔥",
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id,
+                  "text": f"✅ <b>Тест уведомлений</b>\n\nБот <b>{company.name}</b> подключён. Горячие лиды будут приходить сюда 🔥",
                   "parse_mode": "HTML"},
             timeout=10
         )
-        r.raise_for_status()
-        return {"ok": True}
+        if r.status_code != 200:
+            tg_err = r.json().get("description", r.text[:200])
+            return JSONResponse({"error": f"Telegram: {tg_err}"}, status_code=400)
+        return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/portal/api/tg-getid")
-async def co_tg_getid(request: Request, tg_token: str):
-    """Получить chat_id из последних updates Telegram бота."""
-    company = _get_co_company(request, None)  # только auth check
-    token = request.cookies.get("co_token", "")
-    if not (_decode_jwt(token) or {}).get("role") == "company":
+async def co_tg_getid(request: Request, tg_token: str = "", db: Session = Depends(get_db)):
+    company = _get_co_company(request, db)
+    if not company:
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     if not tg_token:
         return JSONResponse({"error": "tg_token пустой"}, status_code=400)
     try:
         r = _req.get(f"https://api.telegram.org/bot{tg_token}/getUpdates", timeout=10)
-        r.raise_for_status()
-        updates = r.json().get("result", [])
+        data = r.json()
+        if not data.get("ok"):
+            return JSONResponse({"error": "Telegram: " + data.get("description", "unknown error")})
+        updates = data.get("result", [])
         if not updates:
-            return JSONResponse({"error": "Сначала напишите что-нибудь вашему боту в Telegram, затем повторите"})
-        chat_id = str(updates[-1]["message"]["chat"]["id"])
-        return {"chat_id": chat_id}
+            return JSONResponse({"error": "Сначала напишите боту любое сообщение в Telegram, затем повторите"})
+        last = updates[-1]
+        msg = last.get("message") or last.get("channel_post") or {}
+        chat_id = str(msg.get("chat", {}).get("id", ""))
+        if not chat_id:
+            return JSONResponse({"error": "Напишите боту любое сообщение в Telegram и повторите"})
+        return JSONResponse({"chat_id": chat_id})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
