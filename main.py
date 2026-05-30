@@ -35,6 +35,10 @@ templates = Jinja2Templates(directory="admin/templates")
 async def healthz():
     return {"ok": True}
 
+@app.get("/debug-verify")
+async def debug_verify():
+    return {"WA_VERIFY": WA_VERIFY, "len": len(WA_VERIFY)}
+
 ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "admin123")
 _super_sessions: set[str] = set()
 _co_sessions: dict[str, str] = {}   # token → company_id
