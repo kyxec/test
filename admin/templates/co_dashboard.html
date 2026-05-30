@@ -194,5 +194,16 @@ new Chart(document.getElementById('funnelChart'), {
   }
 });
 {% endif %}
+
+// Auto-refresh: если handoff count вырос — перезагрузить страницу
+(function() {
+  const knownHandoff = {{ stats.handoff | default(0) }};
+  setInterval(() => {
+    fetch('/portal/api/handoff-count')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.handoff_count > knownHandoff) location.reload(); })
+      .catch(() => {});
+  }, 30000);
+})();
 </script>
 </html>

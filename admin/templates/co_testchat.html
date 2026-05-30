@@ -8,7 +8,109 @@
 <body class="bg-slate-50 flex min-h-screen">
   {% include 'co_sidebar.html' %}
 
-  <main class="ml-64 flex-1 p-8 min-w-0">
+  <main class="ml-64 flex-1 flex flex-col p-8 min-w-0">
+    <div class="mb-4 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Тест-чат</h1>
+        <p class="text-slate-500 text-sm mt-0.5">Точная симуляция реального бота — тот же промпт, та же логика</p>
+      </div>
+      <div class="flex items-center gap-3">
+        {% if last_score is defined and last_score %}
+        <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm">
+          <span class="text-slate-500">Score:</span>
+          <span class="font-bold {{ 'text-red-500' if last_score >= 8 else 'text-yellow-600' if last_score >= 5 else 'text-slate-400' }}">{{ last_score }}/10</span>
+          <span class="text-slate-400">·</span>
+          <span class="text-slate-500 text-xs font-mono">{{ last_intent }}</span>
+        </div>
+        {% endif %}
+        {% if history %}
+        <a href="/portal/test-chat"
+           class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl text-sm transition">
+          🗑 Очистить
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not company.persona and not company.knowledge %}
+    <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-700 max-w-2xl">
+      ⚠️ Персона и база знаний не настроены — бот отвечает как дефолтный ассистент.
+      <a href="/portal/settings" class="underline font-medium ml-1">Настроить →</a>
+    </div>
+    {% endif %}
+
+    <!-- История чата -->
+    <div id="chatHistory" class="max-w-2xl space-y-3 mb-4 overflow-y-auto" style="max-height:55vh; min-height:200px;">
+      {% if not history %}
+      <div class="text-center py-16 text-slate-400">
+        <div class="text-4xl mb-3">🤖</div>
+        <p class="font-medium">Начните диалог</p>
+        <p class="text-sm mt-1">Пишите как обычный клиент — бот ответит так же как в реальном WhatsApp</p>
+      </div>
+      {% else %}
+      {% for msg in history %}
+      {% if msg.role == 'user' %}
+      <div class="flex justify-end">
+        <div class="max-w-sm">
+          <div class="bg-emerald-500 text-white px-4 py-2.5 rounded-2xl rounded-br-sm shadow-sm text-sm leading-relaxed">{{ msg.content }}</div>
+          <p class="text-xs text-slate-400 mt-1 text-right">Вы</p>
+        </div>
+      </div>
+      {% else %}
+      <div class="flex justify-start gap-2">
+        <div class="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center text-xs flex-shrink-0 mt-1">🤖</div>
+        <div class="max-w-sm">
+          <div class="bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl rounded-bl-sm shadow-sm text-sm leading-relaxed">{{ msg.content }}</div>
+          <div class="flex items-center gap-2 mt-1">
+            {% if msg.score is defined and msg.score %}
+            <span class="text-xs {{ 'text-red-500 font-medium' if msg.score >= 8 else 'text-yellow-600' if msg.score >= 5 else 'text-slate-400' }}">score {{ msg.score }}/10</span>
+            {% endif %}
+            {% if msg.intent is defined %}<span class="text-xs text-slate-400 font-mono">{{ msg.intent }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+    </div>
+
+    <!-- Форма ввода -->
+    <div class="max-w-2xl">
+      <form method="post" action="/portal/test-chat" id="chatForm">
+        <input type="hidden" name="history_json" id="historyJson" value="{{ history_json or '[]' }}">
+        <div class="flex gap-2">
+          <textarea name="message" id="msgInput" rows="2" required
+                    class="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition resize-none bg-white"
+                    placeholder="Напишите сообщение как клиент..."></textarea>
+          <button type="submit" id="sendBtn"
+                  class="self-end bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold px-5 py-3 rounded-xl transition shadow-sm">
+            <span id="sendLabel">Отправить →</span>
+          </button>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Enter — отправить · Shift+Enter — новая строка</p>
+      </form>
+    </div>
+  </main>
+</body>
+<script>
+  const chat = document.getElementById('chatHistory');
+  if (chat) chat.scrollTop = chat.scrollHeight;
+
+  const inp  = document.getElementById('msgInput');
+  const form = document.getElementById('chatForm');
+  const btn  = document.getElementById('sendBtn');
+
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+  form.addEventListener('submit', () => {
+    if (!inp.value.trim()) return;
+    btn.disabled = true;
+    document.getElementById('sendLabel').textContent = '⏳';
+  });
+</script>
+</html>
+
     <div class="mb-6">
       <h1 class="text-2xl font-bold text-slate-800">Тест-чат</h1>
       <p class="text-slate-500 text-sm mt-1">Проверьте как бот отвечает с вашей текущей персоной и базой знаний</p>

@@ -2,8 +2,8 @@
 main.py — FastAPI webhook + Super-Admin (/admin) + Company Portal (/portal)
 """
 from __future__ import annotations
-import os, logging, secrets, hashlib
-from datetime import datetime, timedelta
+import os, logging, secrets
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,9 +11,11 @@ load_dotenv()
 from fastapi import FastAPI, Request, Response, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+import jwt as _jwt
 import requests as _req
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 
 from models import init_db, get_db, Company, Client, Message, Summary
 from config import WA_VERIFY, FEATURE_HANDOFF, FEATURE_FUNNEL
@@ -31,6 +33,35 @@ init_db()
 app = FastAPI(title="WP Bot")
 templates = Jinja2Templates(directory="admin/templates")
 
+# ── Auth ──────────────────────────────────────────────────────────
+ADMIN_PASS  = os.getenv("ADMIN_PASSWORD", "admin123")
+JWT_SECRET  = os.getenv("JWT_SECRET", secrets.token_hex(32))  # Railway: задать явно
+JWT_ALG     = "HS256"
+JWT_TTL     = 60 * 60 * 24 * 7   # 7 дней
+
+_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _hash_pwd(pwd: str) -> str:
+    return _pwd.hash(pwd)
+
+def _verify_pwd(pwd: str, hashed: str) -> bool:
+    # обратная совместимость со старыми SHA-256 хэшами
+    import hashlib
+    if len(hashed) == 64:   # SHA-256 hex
+        return hashlib.sha256(pwd.encode()).hexdigest() == hashed
+    return _pwd.verify(pwd, hashed)
+
+def _make_jwt(payload: dict) -> str:
+    data = {**payload, "exp": datetime.now(timezone.utc) + timedelta(seconds=JWT_TTL)}
+    return _jwt.encode(data, JWT_SECRET, algorithm=JWT_ALG)
+
+def _decode_jwt(token: str) -> dict | None:
+    try:
+        return _jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    except Exception:
+        return None
+
+
 @app.get("/healthz")
 async def healthz():
     return {"ok": True}
@@ -38,19 +69,6 @@ async def healthz():
 @app.get("/")
 async def root():
     return RedirectResponse("/admin/login", status_code=302)
-
-ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "admin123")
-_super_sessions: set[str] = set()
-_co_sessions: dict[str, str] = {}   # token → company_id
-
-
-# ── helpers ───────────────────────────────────────────────────────
-
-def _hash_pwd(pwd: str) -> str:
-    return hashlib.sha256(pwd.encode()).hexdigest()
-
-def _verify_pwd(pwd: str, hashed: str) -> bool:
-    return hashlib.sha256(pwd.encode()).hexdigest() == hashed
 
 
 # ── WhatsApp helpers ──────────────────────────────────────────────
@@ -94,46 +112,66 @@ def get_company_by_phone_id(db: Session, phone_id: str) -> Company | None:
 
 
 def _is_super(request: Request) -> bool:
-    return request.cookies.get("admin_token") in _super_sessions
+    token = request.cookies.get("admin_token", "")
+    data  = _decode_jwt(token)
+    return bool(data and data.get("role") == "super")
 
 
 def _get_co_company(request: Request, db: Session) -> Company | None:
-    token = request.cookies.get("co_token")
-    if not token:
+    token = request.cookies.get("co_token", "")
+    data  = _decode_jwt(token)
+    if not data or data.get("role") != "company":
         return None
-    company_id = _co_sessions.get(token)
-    if not company_id:
-        return None
-    return db.query(Company).filter_by(id=company_id, active=True).first()
+    return db.query(Company).filter_by(id=data["company_id"], active=True).first()
 
 
 def get_stats(db: Session, company_id: str) -> dict:
-    total_clients = db.query(Client).filter_by(company_id=company_id).count()
-    blocked  = db.query(Client).filter_by(company_id=company_id, blocked=True).count()
-    handoff  = db.query(Client).filter_by(company_id=company_id, handoff=True).count()
-    total_msgs = db.query(Message).filter_by(company_id=company_id).count()
-    today = datetime.utcnow().date()
-    msgs_today = db.query(Message).filter(
+    """Все метрики за один агрегированный запрос + 7-дневный чарт."""
+    today = datetime.now(timezone.utc).date()
+
+    # Метрики клиентов — один запрос
+    row = db.query(
+        func.count(Client.id).label("total"),
+        func.sum(case((Client.blocked == True, 1), else_=0)).label("blocked"),
+        func.sum(case((Client.handoff  == True, 1), else_=0)).label("handoff"),
+    ).filter(Client.company_id == company_id).one()
+
+    # Сообщения всего + сегодня — один запрос
+    msg_row = db.query(
+        func.count(Message.id).label("total"),
+        func.sum(case((func.date(Message.created_at) == today, 1), else_=0)).label("today"),
+    ).filter(Message.company_id == company_id).one()
+
+    # 7-дневный чарт — один запрос с group by
+    seven_days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+    chart_rows = db.query(
+        func.date(Message.created_at).label("day"),
+        func.count(Message.id).label("cnt"),
+    ).filter(
         Message.company_id == company_id,
-        func.date(Message.created_at) == today
-    ).count()
-    chart_labels, chart_data = [], []
-    for i in range(6, -1, -1):
-        d = (datetime.utcnow() - timedelta(days=i)).date()
-        cnt = db.query(Message).filter(
-            Message.company_id == company_id,
-            Message.role == "user",
-            func.date(Message.created_at) == d
-        ).count()
-        chart_labels.append(d.strftime("%d.%m"))
-        chart_data.append(cnt)
-    stages: dict[str, int] = {}
-    for c in db.query(Client).filter_by(company_id=company_id).all():
-        stages[c.stage] = stages.get(c.stage, 0) + 1
+        Message.role == "user",
+        func.date(Message.created_at) >= seven_days[0],
+    ).group_by(func.date(Message.created_at)).all()
+    chart_map = {str(r.day): r.cnt for r in chart_rows}
+
+    chart_labels = [d.strftime("%d.%m") for d in seven_days]
+    chart_data   = [chart_map.get(str(d), 0) for d in seven_days]
+
+    # Стадии — один запрос
+    stage_rows = db.query(
+        Client.stage, func.count(Client.id)
+    ).filter(Client.company_id == company_id).group_by(Client.stage).all()
+    stages = {s: cnt for s, cnt in stage_rows}
+
     return {
-        "total_clients": total_clients, "blocked": blocked, "handoff": handoff,
-        "total_msgs": total_msgs, "msgs_today": msgs_today,
-        "chart_labels": chart_labels, "chart_data": chart_data, "stages": stages,
+        "total_clients": row.total   or 0,
+        "blocked":       row.blocked or 0,
+        "handoff":       row.handoff or 0,
+        "total_msgs":    msg_row.total or 0,
+        "msgs_today":    msg_row.today or 0,
+        "chart_labels":  chart_labels,
+        "chart_data":    chart_data,
+        "stages":        stages,
     }
 
 
@@ -237,10 +275,17 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
 
     send_wa(phone, reply, company.wa_phone_id, company.wa_token)
 
-    if FEATURE_FUNNEL and client.stage == "new":
-        client.stage = "qualifying"
-        db.commit()
-        push_lead(phone, company.id, client.stage)
+    # — Авто-прогресс стадии воронки по score
+    if FEATURE_FUNNEL:
+        new_stage = client.stage
+        if score >= 8 and client.stage not in ("qualified", "customer"):
+            new_stage = "qualified"
+        elif score >= 5 and client.stage == "new":
+            new_stage = "qualifying"
+        if new_stage != client.stage:
+            client.stage = new_stage
+            db.commit()
+            push_lead(phone, company.id, new_stage)
 
     return {"ok": True}
 
@@ -257,17 +302,15 @@ async def admin_login_page(request: Request):
 @app.post("/admin/login")
 async def admin_login(request: Request, password: str = Form(...)):
     if password == ADMIN_PASS:
-        token = secrets.token_hex(32)
-        _super_sessions.add(token)
+        token = _make_jwt({"role": "super"})
         r = RedirectResponse("/admin", status_code=302)
-        r.set_cookie("admin_token", token, httponly=True)
+        r.set_cookie("admin_token", token, httponly=True, max_age=JWT_TTL)
         return r
     return templates.TemplateResponse(request=request, name="admin_login.html", context={"error": "Неверный пароль"})
 
 
 @app.get("/admin/logout")
 async def admin_logout(request: Request):
-    _super_sessions.discard(request.cookies.get("admin_token", ""))
     r = RedirectResponse("/admin/login", status_code=302)
     r.delete_cookie("admin_token")
     return r
@@ -419,17 +462,20 @@ async def co_login(request: Request, db: Session = Depends(get_db),
                    login: str = Form(...), password: str = Form(...)):
     company = db.query(Company).filter_by(login=login, active=True).first()
     if company and company.password_hash and _verify_pwd(password, company.password_hash):
-        token = secrets.token_hex(32)
-        _co_sessions[token] = company.id
+        # Пересохранить с bcrypt если пароль был SHA-256
+        import hashlib
+        if len(company.password_hash) == 64:
+            company.password_hash = _hash_pwd(password)
+            db.commit()
+        token = _make_jwt({"role": "company", "company_id": company.id})
         r = RedirectResponse("/portal", status_code=302)
-        r.set_cookie("co_token", token, httponly=True)
+        r.set_cookie("co_token", token, httponly=True, max_age=JWT_TTL)
         return r
     return templates.TemplateResponse(request=request, name="co_login.html", context={"error": "Неверный логин или пароль"})
 
 
 @app.get("/portal/logout")
 async def co_logout(request: Request):
-    _co_sessions.pop(request.cookies.get("co_token", ""), None)
     r = RedirectResponse("/portal/login", status_code=302)
     r.delete_cookie("co_token")
     return r
@@ -561,31 +607,67 @@ async def co_testchat_get(request: Request, db: Session = Depends(get_db)):
     if not company:
         return RedirectResponse("/portal/login", status_code=302)
     return templates.TemplateResponse(request=request, name="co_testchat.html", context={
-        "company": company, "active_page": "testchat", "response": None, "user_msg": ""
+        "company": company, "active_page": "testchat", "history": []
     })
 
 
 @app.post("/portal/test-chat")
 async def co_testchat_post(request: Request, db: Session = Depends(get_db),
-                            message: str = Form(...)):
+                            message: str = Form(...),
+                            history_json: str = Form("[]")):
     company = _get_co_company(request, db)
     if not company:
         return RedirectResponse("/portal/login", status_code=302)
+
+    import json as _json, re
+    from ai import _REPLY_FORMAT, _STRICT_SUFFIX, _parse_bot_response
+
+    # Восстановить историю из скрытого поля
     try:
-        messages_ctx = []
-        if company.persona:
-            messages_ctx.append({"role": "system", "content": company.persona})
-        if company.knowledge:
-            messages_ctx.append({"role": "system",
-                                  "content": f"База знаний:\n{company.knowledge}"})
-        messages_ctx.append({"role": "user", "content": message})
-        ai_reply = _call_groq(messages_ctx)
+        history: list[dict] = _json.loads(history_json)
+    except Exception:
+        history = []
+
+    # Собрать контекст точно как в реальном боте
+    persona   = company.persona   or "Ты — вежливый помощник компании."
+    knowledge = company.knowledge or ""
+    system_msg = persona
+    if knowledge:
+        system_msg += f"\n\nБаза знаний:\n{knowledge}"
+    if getattr(company, "strict_mode", True):
+        system_msg += _STRICT_SUFFIX
+    system_msg += _REPLY_FORMAT
+
+    messages_ctx = [{"role": "system", "content": system_msg}]
+    for h in history[-10:]:   # последние 10 пар для экономии токенов
+        messages_ctx.append({"role": h["role"], "content": h["content"]})
+    messages_ctx.append({"role": "user", "content": message})
+
+    try:
+        raw = _call_groq(messages_ctx)
+        ai_reply, score, intent = _parse_bot_response(raw)
     except Exception as e:
-        ai_reply = f"Ошибка: {e}"
+        ai_reply, score, intent = f"Ошибка: {e}", 0, "error"
+
+    # Добавить в историю
+    history.append({"role": "user",      "content": message})
+    history.append({"role": "assistant", "content": ai_reply, "score": score, "intent": intent})
+
     return templates.TemplateResponse(request=request, name="co_testchat.html", context={
         "company": company, "active_page": "testchat",
-        "response": ai_reply, "user_msg": message
+        "history": history, "history_json": _json.dumps(history, ensure_ascii=False),
+        "last_score": score, "last_intent": intent,
     })
+
+
+@app.get("/portal/api/handoff-count")
+async def co_handoff_count(request: Request, db: Session = Depends(get_db)):
+    """Лёгкий endpoint для polling — возвращает кол-во ожидающих менеджера."""
+    company = _get_co_company(request, db)
+    if not company:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    count = db.query(Client).filter_by(company_id=company.id, handoff=True).count()
+    return {"handoff_count": count}
 
 
 @app.post("/portal/ai-suggest")
@@ -597,21 +679,19 @@ async def co_ai_suggest(request: Request, db: Session = Depends(get_db),
     try:
         raw = _call_groq([
             {"role": "system",
-             "content": "Ты эксперт по настройке AI-чатботов для бизнеса. Отвечай строго в нужном формате."},
+             "content": "Ты эксперт по настройке AI-чатботов. Отвечай исключительно в JSON без markdown."},
             {"role": "user",
              "content": (
-                 f"Создай для бизнеса:\n\n{description}\n\n"
-                 "Строго в формате:\n"
-                 "PERSONA:\n<3-5 предложений — системный промпт для AI-ассистента "
-                 "от первого лица, приветливо>\n"
-                 "KNOWLEDGE:\n<структурированная база знаний: режим работы, услуги, "
-                 "цены, FAQ — всё что можно вывести из описания>"
+                 f"Создай настройку бота для бизнеса:\n\n{description}\n\n"
+                 'Формат ответа (JSON):\n'
+                 '{"persona":"<системный промпт 3-5 предложений>",'
+                 '"knowledge":"<база знаний: режим, услуги, цены, FAQ>"} '
              )},
         ])
-        parts = raw.split("KNOWLEDGE:")
-        persona = parts[0].replace("PERSONA:", "").strip()
-        knowledge = parts[1].strip() if len(parts) > 1 else ""
-        return JSONResponse({"persona": persona, "knowledge": knowledge})
+        import re, json as _json
+        cleaned = re.sub(r"```[a-z]*\n?", "", raw).strip()
+        data = _json.loads(cleaned)
+        return JSONResponse({"persona": data.get("persona", ""), "knowledge": data.get("knowledge", "")})
     except Exception as e:
         log.error("[ai-suggest] %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
