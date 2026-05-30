@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer, Boolean, ForeignKey, text
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -49,7 +49,7 @@ class Client(Base):
     blocked     = Column(Boolean, default=False)      # спам-блок
     handoff     = Column(Boolean, default=False)      # передан менеджеру — бот молчит
     lead_score  = Column(Integer, default=0)          # 1-10 горячесть лида
-    created_at  = Column(DateTime, default=datetime.utcnow)
+    created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Message(Base):
@@ -61,7 +61,7 @@ class Message(Base):
     company_id  = Column(String, ForeignKey("companies.id"), nullable=False)
     role        = Column(String, nullable=False)      # "user" | "assistant"
     content     = Column(Text, nullable=False)
-    created_at  = Column(DateTime, default=datetime.utcnow)
+    created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Summary(Base):
@@ -72,7 +72,7 @@ class Summary(Base):
     phone       = Column(String, nullable=False)
     company_id  = Column(String, ForeignKey("companies.id"), nullable=False)
     content     = Column(Text, nullable=False)
-    created_at  = Column(DateTime, default=datetime.utcnow)
+    created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 def init_db():

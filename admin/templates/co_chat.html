@@ -55,7 +55,28 @@
         {% endfor %}
       </div>
       {% endif %}
+
+      <!-- Форма ответа менеджера -->
+      {% if client.handoff and not client.blocked %}
+      <div class="mt-6 bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
+        <p class="text-xs text-slate-400 mb-2">✍️ Ответить клиенту через WhatsApp:</p>
+        <form method="post" action="/portal/client/{{ client.id }}/send" class="flex gap-2">
+          <textarea name="text" rows="2" required
+                    class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition resize-none bg-white"
+                    placeholder="Напишите ответ..."></textarea>
+          <button type="submit"
+                  class="self-end bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-xl transition shadow-sm text-sm">
+            Отправить
+          </button>
+        </form>
+      </div>
+      {% endif %}
     </div>
   </main>
 </body>
+<script>
+  // Авто-скролл к последнему сообщению
+  const last = document.querySelector('.space-y-3 > div:last-child');
+  if (last) last.scrollIntoView({ behavior: 'smooth', block: 'end' });
+</script>
 </html>

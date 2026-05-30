@@ -26,6 +26,7 @@
         <thead class="bg-slate-800 text-slate-400 text-xs uppercase tracking-wide">
           <tr>
             <th class="text-left px-4 py-3">Телефон</th>
+            <th class="text-left px-4 py-3">Score</th>
             <th class="text-left px-4 py-3">Стадия</th>
             <th class="text-left px-4 py-3">Статус</th>
             <th class="text-left px-4 py-3">Дата</th>
@@ -36,6 +37,14 @@
           {% for c in clients %}
           <tr class="hover:bg-slate-800/50 transition">
             <td class="px-4 py-3 font-mono text-white">{{ c.phone }}</td>
+            <td class="px-4 py-3">
+              {% set s = c.lead_score or 0 %}
+              <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold
+                {{ 'bg-red-500/30 text-red-300' if s >= 8 else
+                   'bg-yellow-500/30 text-yellow-300' if s >= 5 else
+                   'bg-slate-700 text-slate-400' }}"
+                title="Горячесть лида">{{ s }}</span>
+            </td>
             <td class="px-4 py-3">
               <span class="px-2 py-1 rounded-lg text-xs font-medium
                 {{ 'bg-slate-700 text-slate-300' if c.stage == 'new' else

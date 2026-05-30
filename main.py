@@ -321,10 +321,10 @@ async def admin_index(request: Request, db: Session = Depends(get_db)):
     if not _is_super(request):
         return RedirectResponse("/admin/login", status_code=302)
     companies = db.query(Company).all()
-    stats = {c.id: {
-        "clients":  db.query(Client).filter_by(company_id=c.id).count(),
-        "messages": db.query(Message).filter_by(company_id=c.id).count(),
-    } for c in companies}
+    # Один запрос вместо N*2
+    client_counts  = {r[0]: r[1] for r in db.query(Client.company_id,  func.count(Client.id)).group_by(Client.company_id).all()}
+    message_counts = {r[0]: r[1] for r in db.query(Message.company_id, func.count(Message.id)).group_by(Message.company_id).all()}
+    stats = {c.id: {"clients": client_counts.get(c.id, 0), "messages": message_counts.get(c.id, 0)} for c in companies}
     return templates.TemplateResponse(request=request, name="super_index.html", context={"companies": companies, "stats": stats})
 
 
@@ -524,6 +524,16 @@ async def co_settings_save(
         return RedirectResponse("/portal/login", status_code=302)
     if new_password:
         if not _verify_pwd(current_password, company.password_hash or ""):
+            # Вернуть форму с введёнными значениями (не из БД)
+            company.name       = name
+            company.wa_token   = wa_token
+            company.persona    = persona
+            company.knowledge  = knowledge
+            company.tg_token   = tg_token
+            company.tg_chat_id = tg_chat_id
+            company.hot_score  = max(1, min(10, hot_score))
+            company.strict_mode = (strict_mode == "on")
+            db.expunge(company)  # не коммитить — только для рендера
             return templates.TemplateResponse(request=request, name="co_settings.html", context={"company": company, "error": "Неверный текущий пароль", "success": None, "active_page": "settings"})
         company.password_hash = _hash_pwd(new_password)
     company.name       = name
@@ -582,6 +592,25 @@ async def co_clear_history(cid: int, request: Request, db: Session = Depends(get
         db.query(Summary).filter_by(phone=c.phone, company_id=c.company_id).delete()
         db.commit()
     return RedirectResponse("/portal/clients", status_code=302)
+
+
+@app.post("/portal/client/{cid}/send")
+async def co_client_send(cid: int, request: Request, db: Session = Depends(get_db),
+                          text: str = Form(...)):
+    """\u041cенеджер отправляет сообщение клиенту из портала."""
+    company = _get_co_company(request, db)
+    if not company:
+        return RedirectResponse("/portal/login", status_code=302)
+    client = db.query(Client).filter_by(id=cid, company_id=company.id).first()
+    if not client:
+        raise HTTPException(404)
+    text = text.strip()
+    if text:
+        send_wa(client.phone, text, company.wa_phone_id, company.wa_token)
+        db.add(Message(phone=client.phone, company_id=company.id,
+                       role="assistant", content=f"[\u041cенеджер] {text}"))
+        db.commit()
+    return RedirectResponse(f"/portal/client/{cid}/chat", status_code=302)
 
 
 @app.get("/portal/client/{cid}/chat")
