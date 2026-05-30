@@ -30,6 +30,7 @@
           <thead class="bg-slate-50 border-b border-slate-100">
             <tr>
               <th class="text-left px-5 py-3 text-slate-500 font-medium text-xs uppercase tracking-wide">Телефон</th>
+              <th class="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-wide">Score</th>
               <th class="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-wide">Стадия</th>
               <th class="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-wide">Статус</th>
               <th class="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-wide">Дата</th>
@@ -40,6 +41,13 @@
             {% for c in clients %}
             <tr class="hover:bg-slate-50 transition">
               <td class="px-5 py-3.5 font-mono text-slate-700 font-medium">{{ c.phone }}</td>
+              <td class="px-4 py-3.5">
+                {% set s = c.lead_score or 0 %}
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold
+                  {{ 'bg-red-100 text-red-600' if s >= 8 else
+                     'bg-yellow-100 text-yellow-700' if s >= 5 else
+                     'bg-slate-100 text-slate-400' }}">{{ s }}</span>
+              </td>
               <td class="px-4 py-3.5">
                 <span class="px-2.5 py-1 rounded-lg text-xs font-semibold
                   {{ 'bg-slate-100 text-slate-500' if c.stage == 'new' else

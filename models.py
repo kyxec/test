@@ -29,6 +29,11 @@ class Company(Base):
     active        = Column(Boolean, default=True)
     login         = Column(String, unique=True, nullable=True)   # логин владельца
     password_hash = Column(String, nullable=True)                # SHA-256
+    # Уведомления и поведение бота
+    tg_token      = Column(String, default="")   # Telegram Bot Token для алертов
+    tg_chat_id    = Column(String, default="")   # Telegram chat_id менеджера
+    hot_score     = Column(Integer, default=8)   # порог горячего лида (1-10)
+    strict_mode   = Column(Boolean, default=True) # бот молчит о том чего не знает
 
 
 class Client(Base):
@@ -43,6 +48,7 @@ class Client(Base):
     crm_id      = Column(String, default="")          # ID в CRM после передачи
     blocked     = Column(Boolean, default=False)      # спам-блок
     handoff     = Column(Boolean, default=False)      # передан менеджеру — бот молчит
+    lead_score  = Column(Integer, default=0)          # 1-10 горячесть лида
     created_at  = Column(DateTime, default=datetime.utcnow)
 
 
@@ -73,9 +79,20 @@ def init_db():
     Base.metadata.create_all(engine)
     # миграция для старых БД — добавляем колонки если их нет
     with engine.connect() as conn:
-        for col, ddl in [("login", "TEXT"), ("password_hash", "TEXT")]:
+        for col, ddl in [
+            ("login",         "TEXT"),
+            ("password_hash", "TEXT"),
+            ("tg_token",      "TEXT DEFAULT ''"),
+            ("tg_chat_id",    "TEXT DEFAULT ''"),
+            ("hot_score",     "INTEGER DEFAULT 8"),
+            ("strict_mode",   "BOOLEAN DEFAULT 1"),
+            ("lead_score",    "INTEGER DEFAULT 0"),  # on clients table — handled below
+        ]:
+            # колонки tg_*/hot_score/strict_mode → в companies
+            # lead_score → в clients
+            table = "clients" if col == "lead_score" else "companies"
             try:
-                conn.execute(text(f"ALTER TABLE companies ADD COLUMN {col} {ddl}"))
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
                 conn.commit()
             except Exception:
                 pass

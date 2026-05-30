@@ -75,6 +75,20 @@ def send_wa(phone: str, text: str,
         log.error("[send_wa] Исключение: %s", e)
 
 
+def send_telegram(tg_token: str, chat_id: str, text: str) -> None:
+    """POST сообщение в Telegram. Используется для алертов менеджеру."""
+    if not tg_token or not chat_id:
+        return
+    try:
+        _req.post(
+            f"https://api.telegram.org/bot{tg_token}/sendMessage",
+            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+            timeout=10
+        )
+    except Exception as e:
+        log.error("[telegram] %s", e)
+
+
 def get_company_by_phone_id(db: Session, phone_id: str) -> Company | None:
     return db.query(Company).filter_by(id=phone_id, active=True).first()
 
@@ -180,11 +194,37 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
         return {"ok": True}
 
     try:
-        reply = get_reply(db, phone, company, text)
-        log.info("[reply] %s → %s", phone, reply[:80])
+        reply, score, intent = get_reply(db, phone, company, text)
+        log.info("[reply] %s score=%s intent=%s → %s", phone, score, intent, reply[:80])
     except Exception as e:
         log.error("[get_reply] Ошибка: %s", e)
         return {"ok": True}
+
+    # — Сохранить score клиенту
+    client.lead_score = score
+    db.commit()
+
+    # — Авто-handoff при горячем лиде
+    threshold = getattr(company, "hot_score", 8) or 8
+    if FEATURE_HANDOFF and score >= threshold and not client.handoff:
+        client.handoff = True
+        db.commit()
+        # Сообщить клиенту
+        send_wa(phone,
+                "Соединяю вас с менеджером, ожидайте — он уже видит ваш запрос. 🤝",
+                company.wa_phone_id, company.wa_token)
+        # Алерт в Telegram
+        tg_msg = (
+            f"🔥 <b>Горячий лид!</b> [score: {score}/10]\n\n"
+            f"📱 <code>{phone}</code>\n"
+            f"💬 Намерение: <b>{intent}</b>\n"
+            f"✉️ Последнее: {text[:200]}\n\n"
+            f"⏩ Откройте портал чтобы ответить"
+        )
+        send_telegram(company.tg_token or "", company.tg_chat_id or "", tg_msg)
+        log.info("[handoff-auto] %s score=%s", phone, score)
+        return {"ok": True}  # бот уже ответил при передаче
+
     send_wa(phone, reply, company.wa_phone_id, company.wa_token)
 
     if FEATURE_FUNNEL and client.stage == "new":
@@ -420,6 +460,8 @@ async def co_settings_save(
         request: Request, db: Session = Depends(get_db),
         name: str = Form(...), wa_token: str = Form(...),
         persona: str = Form(""), knowledge: str = Form(""),
+        tg_token: str = Form(""), tg_chat_id: str = Form(""),
+        hot_score: int = Form(8), strict_mode: str = Form("off"),
         new_password: str = Form(""), current_password: str = Form("")):
     company = _get_co_company(request, db)
     if not company:
@@ -428,10 +470,14 @@ async def co_settings_save(
         if not _verify_pwd(current_password, company.password_hash or ""):
             return templates.TemplateResponse(request=request, name="co_settings.html", context={"company": company, "error": "Неверный текущий пароль", "success": None, "active_page": "settings"})
         company.password_hash = _hash_pwd(new_password)
-    company.name = name
-    company.wa_token = wa_token
-    company.persona = persona
-    company.knowledge = knowledge
+    company.name       = name
+    company.wa_token   = wa_token
+    company.persona    = persona
+    company.knowledge  = knowledge
+    company.tg_token   = tg_token
+    company.tg_chat_id = tg_chat_id
+    company.hot_score  = max(1, min(10, hot_score))
+    company.strict_mode = (strict_mode == "on")
     db.commit()
     return templates.TemplateResponse(request=request, name="co_settings.html", context={"company": company, "success": "✅ Настройки сохранены!", "error": None, "active_page": "settings"})
 
