@@ -68,26 +68,95 @@
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
-            AI-помощник
+            ✨ AI-помощник
           </button>
         </div>
 
-        <!-- AI панель -->
-        <div id="aiPanel" class="hidden bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
-          <p class="text-violet-700 text-sm font-medium">Опишите ваш бизнес — AI заполнит поля ниже:</p>
-          <textarea id="aiDesc" rows="3"
-                    class="w-full border border-violet-200 rounded-xl px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white resize-none"
-                    placeholder="Например: школа программирования для детей 6-17 лет, 3 уровня сложности, занятия онлайн и офлайн, пробный урок бесплатно..."></textarea>
-          <button type="button" id="aiGenBtn"
-                  class="w-full bg-violet-600 hover:bg-violet-500 text-white py-2 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2">
-            <span id="aiSpinner" class="hidden">
-              <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-            </span>
-            Сгенерировать
-          </button>
+        <!-- AI мастер настройки -->
+        <div id="aiPanel" class="hidden border border-violet-200 rounded-xl overflow-hidden">
+          <div class="bg-violet-600 px-5 py-3 flex items-center justify-between">
+            <div>
+              <p class="text-white font-semibold text-sm">✨ AI-мастер настройки бота</p>
+              <p class="text-violet-200 text-xs mt-0.5">Заполните поля — AI сгенерирует идеальный промпт и базу знаний</p>
+            </div>
+            <span class="text-violet-300 text-xs">2-3 мин</span>
+          </div>
+          <div class="bg-violet-50 p-5 space-y-4">
+
+            <!-- Строка 1 -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-violet-800 text-xs font-semibold mb-1.5 uppercase tracking-wide">🏢 Тип и название бизнеса <span class="text-red-400">*</span></label>
+                <input id="aiBizType" type="text"
+                       class="w-full border border-violet-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white"
+                       placeholder="Студия разработки сайтов, маркетинговое агентство...">
+              </div>
+              <div>
+                <label class="block text-violet-800 text-xs font-semibold mb-1.5 uppercase tracking-wide">🎭 Стиль общения <span class="text-red-400">*</span></label>
+                <select id="aiTone" class="w-full border border-violet-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white h-[38px]">
+                  <option value="дружелюбный и профессиональный">😊 Дружелюбный и профессиональный</option>
+                  <option value="деловой и лаконичный">💼 Деловой и лаконичный</option>
+                  <option value="экспертный и авторитетный">🎓 Экспертный и авторитетный</option>
+                  <option value="тёплый и заботливый">💛 Тёплый и заботливый</option>
+                  <option value="энергичный и продающий">🚀 Энергичный и продающий</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Строка 2 -->
+            <div>
+              <label class="block text-violet-800 text-xs font-semibold mb-1.5 uppercase tracking-wide">📋 Услуги / товары и цены <span class="text-red-400">*</span></label>
+              <textarea id="aiServices" rows="4"
+                        class="w-full border border-violet-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white resize-none"
+                        placeholder="Разработка лендинга — от 30 000₽ (срок 7-14 дней)&#10;Разработка интернет-магазина — от 80 000₽&#10;SEO-продвижение — от 15 000₽/мес&#10;Контекстная реклама — от 10 000₽/мес + % от бюджета&#10;Пробный аудит сайта — БЕСПЛАТНО"></textarea>
+              <p class="text-xs text-violet-500 mt-1">Чем подробнее — тем точнее бот называет цены и не отправляет к менеджеру по каждой мелочи</p>
+            </div>
+
+            <!-- Строка 3 -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-violet-800 text-xs font-semibold mb-1.5 uppercase tracking-wide">🕐 Режим работы</label>
+                <input id="aiSchedule" type="text"
+                       class="w-full border border-violet-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white"
+                       placeholder="Пн-Пт 9:00-18:00, Сб 10:00-15:00">
+              </div>
+              <div>
+                <label class="block text-violet-800 text-xs font-semibold mb-1.5 uppercase tracking-wide">📍 Адрес и контакты</label>
+                <input id="aiContacts" type="text"
+                       class="w-full border border-violet-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white"
+                       placeholder="г. Москва, ул. Примерная 1 / только онлайн">
+              </div>
+            </div>
+
+            <!-- Строка 4 -->
+            <div>
+              <label class="block text-violet-800 text-xs font-semibold mb-1.5 uppercase tracking-wide">❓ Частые вопросы клиентов (FAQ)</label>
+              <textarea id="aiFaq" rows="3"
+                        class="w-full border border-violet-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white resize-none"
+                        placeholder="Как быстро сделаете сайт? — Лендинг за 7-14 дней, магазин за 30-45 дней&#10;Есть ли портфолио? — Да, пришлём по запросу&#10;Работаете с регионами? — Да, работаем по всей России онлайн&#10;Как оплатить? — Счёт на юр.лицо или карта физ.лица, 50% предоплата"></textarea>
+            </div>
+
+            <!-- Строка 5 -->
+            <div>
+              <label class="block text-violet-800 text-xs font-semibold mb-1.5 uppercase tracking-wide">💡 Что ещё важно знать боту</label>
+              <textarea id="aiExtra" rows="2"
+                        class="w-full border border-violet-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:outline-none focus:border-violet-400 bg-white resize-none"
+                        placeholder="Акции: скидка 15% при заказе до конца месяца&#10;Особенности: бесплатная консультация 30 мин, работаем по договору"></textarea>
+            </div>
+
+            <!-- Кнопка -->
+            <button type="button" id="aiGenBtn"
+                    class="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2">
+              <span id="aiSpinner" class="hidden">
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              </span>
+              <span id="aiGenLabel">⚡ Сгенерировать промпт и базу знаний</span>
+            </button>
+            <p id="aiError" class="text-red-500 text-xs hidden"></p>
+          </div>
         </div>
 
         <div>
@@ -207,28 +276,45 @@ const aiBtn    = document.getElementById('aiBtn');
 const aiPanel  = document.getElementById('aiPanel');
 const aiGenBtn = document.getElementById('aiGenBtn');
 const aiSpinner = document.getElementById('aiSpinner');
-const aiDesc   = document.getElementById('aiDesc');
+const aiGenLabel = document.getElementById('aiGenLabel');
+const aiError  = document.getElementById('aiError');
 const personaField   = document.getElementById('personaField');
 const knowledgeField = document.getElementById('knowledgeField');
 
-aiBtn.addEventListener('click', () => aiPanel.classList.toggle('hidden'));
+aiBtn.addEventListener('click', () => {
+  aiPanel.classList.toggle('hidden');
+  if (!aiPanel.classList.contains('hidden')) aiPanel.scrollIntoView({behavior:'smooth', block:'nearest'});
+});
 
 aiGenBtn.addEventListener('click', async () => {
-  const desc = aiDesc.value.trim();
-  if (!desc) { aiDesc.focus(); return; }
+  const bizType  = document.getElementById('aiBizType').value.trim();
+  const services = document.getElementById('aiServices').value.trim();
+  if (!bizType)  { document.getElementById('aiBizType').focus();  return; }
+  if (!services) { document.getElementById('aiServices').focus(); return; }
   aiSpinner.classList.remove('hidden');
+  aiGenLabel.textContent = 'Генерирую...';
   aiGenBtn.disabled = true;
+  aiError.classList.add('hidden');
   try {
     const fd = new FormData();
-    fd.append('description', desc);
+    fd.append('biz_type',  bizType);
+    fd.append('services',  services);
+    fd.append('schedule',  document.getElementById('aiSchedule').value.trim());
+    fd.append('contacts',  document.getElementById('aiContacts').value.trim());
+    fd.append('faq',       document.getElementById('aiFaq').value.trim());
+    fd.append('tone',      document.getElementById('aiTone').value);
+    fd.append('extra',     document.getElementById('aiExtra').value.trim());
     const r = await fetch('/portal/ai-suggest', { method: 'POST', body: fd });
     const data = await r.json();
-    if (data.error) { alert('Ошибка: ' + data.error); return; }
-    if (data.persona)   personaField.value   = data.persona;
-    if (data.knowledge) knowledgeField.value = data.knowledge;
+    if (data.error) { aiError.textContent = '❌ ' + data.error; aiError.classList.remove('hidden'); return; }
+    personaField.value   = data.persona   || personaField.value;
+    knowledgeField.value = data.knowledge || knowledgeField.value;
     aiPanel.classList.add('hidden');
-  } finally {
+    personaField.scrollIntoView({behavior:'smooth', block:'center'});
+  } catch(e) { aiError.textContent = '❌ ' + e; aiError.classList.remove('hidden'); }
+  finally {
     aiSpinner.classList.add('hidden');
+    aiGenLabel.textContent = '⚡ Сгенерировать промпт и базу знаний';
     aiGenBtn.disabled = false;
   }
 });

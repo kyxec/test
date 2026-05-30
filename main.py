@@ -781,26 +781,66 @@ async def co_tg_getid(request: Request, tg_token: str = "", db: Session = Depend
 
 @app.post("/portal/ai-suggest")
 async def co_ai_suggest(request: Request, db: Session = Depends(get_db),
-                         description: str = Form(...)):
+                         biz_type: str = Form(""), services: str = Form(""),
+                         schedule: str = Form(""), contacts: str = Form(""),
+                         faq: str = Form(""), tone: str = Form(""),
+                         extra: str = Form(""),
+                         description: str = Form("")):
     company = _get_co_company(request, db)
     if not company:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # Поддержка старого формата (одно поле description)
+    if description and not biz_type:
+        biz_type = description
+
+    if not biz_type and not services:
+        return JSONResponse({"error": "Укажите тип бизнеса и услуги"}, status_code=400)
+
+    # Собираем структурированный контекст
+    parts = []
+    if biz_type:  parts.append(f"Бизнес: {biz_type}")
+    if tone:      parts.append(f"Стиль общения бота: {tone}")
+    if services:  parts.append(f"Услуги и цены:\n{services}")
+    if schedule:  parts.append(f"Режим работы: {schedule}")
+    if contacts:  parts.append(f"Адрес и контакты: {contacts}")
+    if faq:       parts.append(f"Частые вопросы и ответы:\n{faq}")
+    if extra:     parts.append(f"Дополнительно:\n{extra}")
+    structured = "\n\n".join(parts)
+
+    system_prompt = """Ты эксперт по настройке AI-чатботов для продаж. Твоя задача — создать идеальную конфигурацию бота.
+Отвечай СТРОГО в JSON без markdown. Оба поля ОБЯЗАТЕЛЬНЫ и должны быть подробными."""
+
+    user_prompt = f"""На основе данных о бизнесе создай конфигурацию WhatsApp-бота:
+
+{structured}
+
+Верни JSON строго в этом формате (оба поля обязательны!):
+{{
+  "persona": "<системный промпт 4-6 предложений: кто ты, как себя ведёшь, цель разговора, что делаешь если не знаешь ответ>",
+  "knowledge": "<полная база знаний в структурированном виде:\nРежим работы: ...\nАдрес/контакты: ...\nУслуги и цены:\n  - Услуга 1 — цена (подробности)\n  - Услуга 2 — цена (подробности)\nЧасто задаваемые вопросы:\n  Q: вопрос?\n  A: ответ.\n  Q: вопрос?\n  A: ответ.\nДополнительно: ...>"
+}}
+
+Требования:
+- persona: пиши от первого лица, укажи название компании, стиль {tone or 'дружелюбный'}, цель — помочь клиенту и при возможности подтолкнуть к заказу
+- knowledge: включи ВСЕ данные которые дали, ничего не придумывай, структурируй с заголовками"""
+
     try:
         raw = _call_groq([
-            {"role": "system",
-             "content": "Ты эксперт по настройке AI-чатботов. Отвечай исключительно в JSON без markdown."},
-            {"role": "user",
-             "content": (
-                 f"Создай настройку бота для бизнеса:\n\n{description}\n\n"
-                 'Формат ответа (JSON):\n'
-                 '{"persona":"<системный промпт 3-5 предложений>",'
-                 '"knowledge":"<база знаний: режим, услуги, цены, FAQ>"} '
-             )},
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_prompt},
         ])
-        import re, json as _json
-        cleaned = re.sub(r"```[a-z]*\n?", "", raw).strip()
+        import re as _re, json as _json
+        cleaned = _re.sub(r"```[a-z]*\n?", "", raw).strip()
+        # найти первый JSON объект
+        m = _re.search(r'\{.*\}', cleaned, _re.DOTALL)
+        if m: cleaned = m.group()
         data = _json.loads(cleaned)
-        return JSONResponse({"persona": data.get("persona", ""), "knowledge": data.get("knowledge", "")})
+        persona   = str(data.get("persona",   "")).strip()
+        knowledge = str(data.get("knowledge", "")).strip()
+        if not persona or not knowledge:
+            raise ValueError("AI вернул неполный ответ")
+        return JSONResponse({"persona": persona, "knowledge": knowledge})
     except Exception as e:
-        log.error("[ai-suggest] %s", e, exc_info=True)
+        log.error("[ai-suggest] %s | raw: %s", e, raw[:200] if 'raw' in dir() else '?', exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
