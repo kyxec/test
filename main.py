@@ -103,19 +103,24 @@ def send_wa(phone: str, text: str,
 def send_telegram(tg_token: str, chat_id: str, text: str) -> None:
     """POST сообщение в Telegram. Используется для алертов менеджеру."""
     if not tg_token or not chat_id:
+        log.warning("[telegram] SKIP — tg_token=%r chat_id=%r", bool(tg_token), bool(chat_id))
         return
     try:
-        _req.post(
+        r = _req.post(
             f"https://api.telegram.org/bot{tg_token}/sendMessage",
             json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
             timeout=10
         )
+        if r.status_code != 200:
+            log.error("[telegram] ERROR %s — %s", r.status_code, r.text[:300])
+        else:
+            log.info("[telegram] OK chat_id=%s", chat_id)
     except Exception as e:
-        log.error("[telegram] %s", e)
+        log.error("[telegram] EXCEPTION %s", e)
 
 
 def get_company_by_phone_id(db: Session, phone_id: str) -> Company | None:
-    return db.query(Company).filter_by(id=phone_id, active=True).first()
+    return db.query(Company).filter_by(wa_phone_id=phone_id, active=True).first()
 
 
 def _is_super(request: Request) -> bool:
@@ -215,6 +220,8 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
     if not company:
         log.warning("Неизвестный phone_number_id: %s", wa_pid)
         return {"ok": True}
+    log.info("[webhook] company=%s tg_token=%s tg_chat_id=%s",
+             company.name, bool(company.tg_token), bool(company.tg_chat_id))
 
     if is_spam(phone):
         log.info("[spam] %s", phone)
