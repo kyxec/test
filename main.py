@@ -280,6 +280,21 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
         log.info("[handoff-auto] %s score=%s", phone, score)
         return {"ok": True}  # бот уже ответил при передаче
 
+    # — Handoff если бот не знает ответа (intent=no_info)
+    if FEATURE_HANDOFF and intent == "no_info" and not client.handoff:
+        client.handoff = True
+        db.commit()
+        send_wa(phone, reply, company.wa_phone_id, company.wa_token)
+        tg_msg = (
+            f"❓ <b>Бот не знает ответа</b> [score: {score}/10]\n\n"
+            f"📱 <code>{phone}</code>\n"
+            f"✉️ Вопрос: {text[:200]}\n\n"
+            f"⏩ Клиент ждёт ответа менеджера"
+        )
+        send_telegram(company.tg_token or "", company.tg_chat_id or "", tg_msg)
+        log.info("[handoff-no_info] %s score=%s", phone, score)
+        return {"ok": True}
+
     send_wa(phone, reply, company.wa_phone_id, company.wa_token)
 
     # — Авто-прогресс стадии воронки по score
