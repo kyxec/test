@@ -66,7 +66,9 @@
                 {{ c.created_at.strftime('%d.%m.%Y %H:%M') if c.created_at else '—' }}
               </td>
               <td class="px-4 py-3.5">
-                <div class="flex gap-1.5 justify-end">
+                <div class="flex gap-1.5 justify-end flex-wrap">
+                  <a href="/portal/client/{{ c.id }}/chat"
+                     class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 rounded-lg text-xs font-medium transition">История</a>
                   {% if c.handoff %}
                   <form method="post" action="/portal/client/{{ c.id }}/handoff-off">
                     <button class="px-2.5 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-200 rounded-lg text-xs font-medium transition">← Боту</button>

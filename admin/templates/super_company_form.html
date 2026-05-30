@@ -64,30 +64,10 @@
         </div>
       </div>
 
-      <!-- Бот -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-        <h2 class="font-semibold text-slate-200 flex items-center gap-2">
-          <span class="w-6 h-6 rounded-md bg-teal-500/20 text-teal-400 flex items-center justify-center text-xs">2</span>
-          Настройки бота
-        </h2>
-        <div>
-          <label class="block text-slate-400 text-sm mb-1.5">Персона / Системный промпт</label>
-          <textarea name="persona" rows="4"
-                    class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition resize-none"
-                    placeholder="Ты — дружелюбный помощник компании...">{{ company.persona if company else '' }}</textarea>
-        </div>
-        <div>
-          <label class="block text-slate-400 text-sm mb-1.5">База знаний</label>
-          <textarea name="knowledge" rows="6"
-                    class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition resize-none"
-                    placeholder="Режим работы: пн-пт 9:00-18:00&#10;Услуги: ...&#10;FAQ: ...">{{ company.knowledge if company else '' }}</textarea>
-        </div>
-      </div>
-
       <!-- Доступ -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
         <h2 class="font-semibold text-slate-200 flex items-center gap-2">
-          <span class="w-6 h-6 rounded-md bg-violet-500/20 text-violet-400 flex items-center justify-center text-xs">3</span>
+          <span class="w-6 h-6 rounded-md bg-violet-500/20 text-violet-400 flex items-center justify-center text-xs">2</span>
           Доступ в портал для владельца
         </h2>
         <p class="text-slate-500 text-sm">Владелец зайдёт на /portal/login и увидит только свою компанию.</p>

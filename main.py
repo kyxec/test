@@ -35,9 +35,9 @@ templates = Jinja2Templates(directory="admin/templates")
 async def healthz():
     return {"ok": True}
 
-@app.get("/debug-verify")
-async def debug_verify():
-    return {"WA_VERIFY": WA_VERIFY, "len": len(WA_VERIFY)}
+@app.get("/")
+async def root():
+    return RedirectResponse("/admin/login", status_code=302)
 
 ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "admin123")
 _super_sessions: set[str] = set()
@@ -246,7 +246,7 @@ async def admin_company_new(request: Request):
 async def admin_company_create(
         request: Request, db: Session = Depends(get_db),
         name: str = Form(...), wa_phone_id: str = Form(...), wa_token: str = Form(...),
-        persona: str = Form(""), knowledge: str = Form(""), active: str = Form("off"),
+        active: str = Form("off"),
         login: str = Form(""), password: str = Form("")):
     if not _is_super(request):
         return RedirectResponse("/admin/login", status_code=302)
@@ -255,7 +255,7 @@ async def admin_company_create(
     if login and db.query(Company).filter_by(login=login).first():
         return templates.TemplateResponse(request=request, name="super_company_form.html", context={"company": None, "error": "Логин уже занят"})
     co = Company(id=wa_phone_id, name=name, wa_phone_id=wa_phone_id, wa_token=wa_token,
-                 persona=persona, knowledge=knowledge, active=(active == "on"),
+                 active=(active == "on"),
                  login=login or None,
                  password_hash=_hash_pwd(password) if password else None)
     db.add(co)
@@ -277,7 +277,7 @@ async def admin_company_edit(cid: str, request: Request, db: Session = Depends(g
 async def admin_company_update(
         cid: str, request: Request, db: Session = Depends(get_db),
         name: str = Form(...), wa_token: str = Form(...),
-        persona: str = Form(""), knowledge: str = Form(""), active: str = Form("off"),
+        active: str = Form("off"),
         login: str = Form(""), password: str = Form("")):
     if not _is_super(request):
         return RedirectResponse("/admin/login", status_code=302)
@@ -290,8 +290,6 @@ async def admin_company_update(
             return templates.TemplateResponse(request=request, name="super_company_form.html", context={"company": company, "error": "Логин уже занят"})
     company.name = name
     company.wa_token = wa_token
-    company.persona = persona
-    company.knowledge = knowledge
     company.active = (active == "on")
     company.login = login or None
     if password:
@@ -395,7 +393,8 @@ async def co_dashboard(request: Request, db: Session = Depends(get_db)):
     stats = get_stats(db, company.id)
     recent = (db.query(Client).filter_by(company_id=company.id)
               .order_by(Client.created_at.desc()).limit(5).all())
-    return templates.TemplateResponse(request=request, name="co_dashboard.html", context={"company": company, "stats": stats, "recent_clients": recent, "active_page": "dashboard"})
+    handoff_clients = (db.query(Client).filter_by(company_id=company.id, handoff=True).all())
+    return templates.TemplateResponse(request=request, name="co_dashboard.html", context={"company": company, "stats": stats, "recent_clients": recent, "handoff_clients": handoff_clients, "active_page": "dashboard"})
 
 
 @app.get("/portal/clients", response_class=HTMLResponse)
@@ -481,6 +480,56 @@ async def co_clear_history(cid: int, request: Request, db: Session = Depends(get
         db.query(Summary).filter_by(phone=c.phone, company_id=c.company_id).delete()
         db.commit()
     return RedirectResponse("/portal/clients", status_code=302)
+
+
+@app.get("/portal/client/{cid}/chat")
+async def co_client_chat(cid: int, request: Request, db: Session = Depends(get_db)):
+    company = _get_co_company(request, db)
+    if not company:
+        return RedirectResponse("/portal/login", status_code=302)
+    client = db.query(Client).filter_by(id=cid, company_id=company.id).first()
+    if not client:
+        raise HTTPException(404)
+    messages = (db.query(Message)
+                .filter_by(phone=client.phone, company_id=company.id)
+                .order_by(Message.created_at)
+                .all())
+    return templates.TemplateResponse(request=request, name="co_chat.html", context={
+        "company": company, "client": client, "messages": messages, "active_page": "clients"
+    })
+
+
+@app.get("/portal/test-chat")
+async def co_testchat_get(request: Request, db: Session = Depends(get_db)):
+    company = _get_co_company(request, db)
+    if not company:
+        return RedirectResponse("/portal/login", status_code=302)
+    return templates.TemplateResponse(request=request, name="co_testchat.html", context={
+        "company": company, "active_page": "testchat", "response": None, "user_msg": ""
+    })
+
+
+@app.post("/portal/test-chat")
+async def co_testchat_post(request: Request, db: Session = Depends(get_db),
+                            message: str = Form(...)):
+    company = _get_co_company(request, db)
+    if not company:
+        return RedirectResponse("/portal/login", status_code=302)
+    try:
+        messages_ctx = []
+        if company.persona:
+            messages_ctx.append({"role": "system", "content": company.persona})
+        if company.knowledge:
+            messages_ctx.append({"role": "system",
+                                  "content": f"База знаний:\n{company.knowledge}"})
+        messages_ctx.append({"role": "user", "content": message})
+        ai_reply = _call_groq(messages_ctx)
+    except Exception as e:
+        ai_reply = f"Ошибка: {e}"
+    return templates.TemplateResponse(request=request, name="co_testchat.html", context={
+        "company": company, "active_page": "testchat",
+        "response": ai_reply, "user_msg": message
+    })
 
 
 @app.post("/portal/ai-suggest")
