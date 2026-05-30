@@ -38,6 +38,13 @@ log.info("="*60)
 log.info("JWT_SECRET (скопируй в Railway Variables): %s", JWT_SECRET)
 log.info("="*60)
 
+@app.on_event("startup")
+async def _startup():
+    log.info("="*60)
+    log.info("JWT_SECRET = %s", JWT_SECRET)
+    log.info("(Задай это значение в Railway → Variables → JWT_SECRET)")
+    log.info("="*60)
+
 # ── Auth ──────────────────────────────────────────────────────────
 ADMIN_PASS  = os.getenv("ADMIN_PASSWORD", "admin123")
 JWT_SECRET  = os.getenv("JWT_SECRET", secrets.token_hex(32))  # Railway: задать явно
