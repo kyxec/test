@@ -779,6 +779,7 @@ async def co_tg_getid(request: Request, tg_token: str = "", db: Session = Depend
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+@app.post("/portal/ai-suggest")
 async def co_ai_suggest(request: Request, db: Session = Depends(get_db),
                          description: str = Form(...)):
     company = _get_co_company(request, db)

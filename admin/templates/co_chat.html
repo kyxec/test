@@ -56,9 +56,42 @@
       </div>
       {% endif %}
 
+      <!-- Кнопки управления -->
+      <div class="mt-4 flex flex-wrap gap-2">
+        {% if client.handoff %}
+        <form method="post" action="/portal/client/{{ client.id }}/handoff-off">
+          <button type="submit"
+                  class="px-4 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 rounded-xl text-sm font-medium transition">
+            🤖 Вернуть боту
+          </button>
+        </form>
+        {% endif %}
+        {% if not client.blocked %}
+        <form method="post" action="/portal/client/{{ client.id }}/block">
+          <button type="submit" onclick="return confirm('Заблокировать клиента?')"
+                  class="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-xl text-sm font-medium transition">
+            🚫 Заблокировать
+          </button>
+        </form>
+        {% else %}
+        <form method="post" action="/portal/client/{{ client.id }}/unblock">
+          <button type="submit"
+                  class="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium transition">
+            ✅ Разблокировать
+          </button>
+        </form>
+        {% endif %}
+        <form method="post" action="/portal/client/{{ client.id }}/clear-history" onsubmit="return confirm('Удалить всю историю?')">
+          <button type="submit"
+                  class="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 rounded-xl text-sm font-medium transition">
+            🗑 Очистить историю
+          </button>
+        </form>
+      </div>
+
       <!-- Форма ответа менеджера -->
       {% if client.handoff and not client.blocked %}
-      <div class="mt-6 bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
+      <div class="mt-4 bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
         <p class="text-xs text-slate-400 mb-2">✍️ Ответить клиенту через WhatsApp:</p>
         <form method="post" action="/portal/client/{{ client.id }}/send" class="flex gap-2">
           <textarea name="text" rows="2" required
