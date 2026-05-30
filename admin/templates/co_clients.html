@@ -16,7 +16,14 @@
       </div>
     </div>
 
-    {% if clients %}
+    {% if not clients %}
+    <div class="bg-white rounded-2xl border border-slate-200 p-16 text-center text-slate-400">
+      <svg class="w-10 h-10 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      <p>Клиентов пока нет. Как только кто-то напишет боту — они появятся здесь.</p>
+    </div>
+    {% else %}
     <!-- Поиск и фильтр -->
     <div class="flex gap-3 mb-4 flex-wrap">
       <input id="searchInput" type="text" placeholder="Поиск по номеру..."
@@ -29,14 +36,6 @@
         <option value="hot">🔥 Горячие (score ≥ 8)</option>
       </select>
     </div>
-    {% endif %}
-    <div class="bg-white rounded-2xl border border-slate-200 p-16 text-center text-slate-400">
-      <svg class="w-10 h-10 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-      </svg>
-      <p>Клиентов пока нет. Как только кто-то напишет боту — они появятся здесь.</p>
-    </div>
-    {% else %}
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
