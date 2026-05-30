@@ -77,25 +77,28 @@ class Summary(Base):
 
 def init_db():
     Base.metadata.create_all(engine)
-    # миграция для старых БД — добавляем колонки если их нет
-    with engine.connect() as conn:
-        for col, ddl in [
-            ("login",         "TEXT"),
-            ("password_hash", "TEXT"),
-            ("tg_token",      "TEXT DEFAULT ''"),
-            ("tg_chat_id",    "TEXT DEFAULT ''"),
-            ("hot_score",     "INTEGER DEFAULT 8"),
-            ("strict_mode",   "BOOLEAN DEFAULT 1"),
-            ("lead_score",    "INTEGER DEFAULT 0"),  # on clients table — handled below
-        ]:
-            # колонки tg_*/hot_score/strict_mode → в companies
-            # lead_score → в clients
-            table = "clients" if col == "lead_score" else "companies"
+    is_pg = not _db_url.startswith("sqlite")
+    # Миграция: добавляем новые колонки если их нет
+    # Каждая попытка — отдельная транзакция, чтобы ошибка одной не ломала следующие
+    migrations = [
+        # (table, column, sqlite_ddl, pg_ddl)
+        ("companies", "login",         "TEXT",            "TEXT"),
+        ("companies", "password_hash", "TEXT",            "TEXT"),
+        ("companies", "tg_token",      "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+        ("companies", "tg_chat_id",    "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+        ("companies", "hot_score",     "INTEGER DEFAULT 8",  "INTEGER DEFAULT 8"),
+        ("companies", "strict_mode",   "BOOLEAN DEFAULT 1",  "BOOLEAN DEFAULT TRUE"),
+        ("clients",   "lead_score",    "INTEGER DEFAULT 0",  "INTEGER DEFAULT 0"),
+    ]
+    for table, col, sqlite_ddl, pg_ddl in migrations:
+        ddl = pg_ddl if is_pg else sqlite_ddl
+        with engine.connect() as conn:
             try:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
                 conn.commit()
             except Exception:
-                pass
+                # Колонка уже существует — это нормально, игнорируем
+                conn.rollback()
 
 
 def get_db():
